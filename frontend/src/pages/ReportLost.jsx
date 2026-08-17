@@ -27,7 +27,7 @@ function ReportLost() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/api/lost-items', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/lost-items`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -118,3 +118,5 @@ function ReportLost() {
 }
 
 export default ReportLost;
+
+
