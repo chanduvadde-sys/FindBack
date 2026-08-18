@@ -1,5 +1,11 @@
+DROP TABLE IF EXISTS claims CASCADE;
+DROP TABLE IF EXISTS matches CASCADE;
+DROP TABLE IF EXISTS found_items CASCADE;
+DROP TABLE IF EXISTS lost_items CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
 CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     phone VARCHAR(50),
@@ -10,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS lost_items (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     category VARCHAR(100) NOT NULL,
     description TEXT,
     color VARCHAR(50),
@@ -25,7 +31,7 @@ CREATE TABLE IF NOT EXISTS lost_items (
 
 CREATE TABLE IF NOT EXISTS found_items (
     id SERIAL PRIMARY KEY,
-    finder_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    finder_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     category VARCHAR(100) NOT NULL,
     description TEXT,
     color VARCHAR(50),
@@ -54,7 +60,7 @@ CREATE TABLE IF NOT EXISTS matches (
 CREATE TABLE IF NOT EXISTS claims (
     id SERIAL PRIMARY KEY,
     match_id INTEGER REFERENCES matches(id) ON DELETE CASCADE,
-    claimant_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    claimant_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     answer TEXT NOT NULL,
     verified BOOLEAN DEFAULT FALSE,
     status VARCHAR(50) DEFAULT 'pending',
