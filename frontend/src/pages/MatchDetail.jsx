@@ -54,7 +54,7 @@ const MatchDetail = () => {
       });
       const data = await response.json();
       if (data.success) {
-        const foundMatch = data.messages.find(m => m.id === id);
+        const foundMatch = data.messages.find(m => m.id.toString() === id.toString());
         if (foundMatch) {
           setMatchData(foundMatch);
           // Wait, 'status' on matches is something else, we need handover request status.
