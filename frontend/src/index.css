@@ -68,6 +68,6 @@
   }
   
   .btn-glass {
-    @apply glass-panel text-text-primary font-medium px-6 py-3 rounded-lg transition-all hover:bg-bg-glass-hover active:scale-[0.97];
+    @apply bg-bg-glass backdrop-blur-lg border border-border-subtle text-text-primary font-medium px-6 py-3 rounded-lg transition-all hover:bg-bg-glass-hover active:scale-[0.97];
   }
 }
