@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { AuthContext } from '../../../context/AuthContext';
+import { AuthContext } from '../../context/AuthContext';
 import { User, FileText, Search, MapPin, CheckCircle2, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
 
