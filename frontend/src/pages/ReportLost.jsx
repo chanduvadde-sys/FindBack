@@ -14,6 +14,7 @@ function ReportLost() {
     locationText: '',
     dateTime: '',
     description: '',
+    privateDetail: '',
     image: null
   });
 
@@ -41,7 +42,7 @@ function ReportLost() {
       
       if (data.success) {
         setSubmitted(true);
-        setFormData({ category: '', color: '', locationText: '', dateTime: '', description: '', image: null });
+        setFormData({ category: '', color: '', locationText: '', dateTime: '', description: '', privateDetail: '', image: null });
       } else {
         alert('Database error: ' + data.error + '\n\nMake sure PostgreSQL is installed and running!');
       }
@@ -127,6 +128,14 @@ function ReportLost() {
               <div>
                 <label className={labelClass}>Description / Identifying Marks</label>
                 <textarea name="description" value={formData.description} onChange={handleChange} rows="4" placeholder="Any scratches? What was inside? Specific brand?" className={inputClass}></textarea>
+              </div>
+
+              <div>
+                <label className={labelClass}>
+                  Private Ownership Detail * 
+                  <span className="block text-xs text-text-muted mt-1 font-normal">This will be used for secure 2-Factor verification if a match is found. It will never be shown to other users.</span>
+                </label>
+                <input type="text" name="privateDetail" value={formData.privateDetail} onChange={handleChange} required placeholder="e.g. A unique green sticker inside the front pocket" className={inputClass} />
               </div>
 
               <div>

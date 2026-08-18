@@ -28,7 +28,7 @@ app.post('/api/lost-items', authMiddleware, async (req, res) => {
     const { data: lostItem, error: insertError } = await supabase
       .from('lost_items')
       .insert([
-        { user_id: req.user.id, category, color, location_text: locationText, lost_at: dateTime, description }
+        { user_id: req.user.id, category, color, location_text: locationText, lost_at: dateTime, description, private_verification_detail: req.body.privateDetail }
       ])
       .select()
       .single();
@@ -217,7 +217,7 @@ app.get('/api/my-messages', authMiddleware, async (req, res) => {
 
     let query = supabase
       .from('matches')
-      .select('*, lost_items(*), found_items(*)');
+      .select('*, lost_items(*), found_items(*), handover_requests(*)');
       
     if (lostIds.length > 0 && foundIds.length > 0) {
       query = query.or(`lost_item_id.in.(${lostIds.join(',')}),found_item_id.in.(${foundIds.join(',')})`);
@@ -286,6 +286,181 @@ app.get('/api/my-analytics', authMiddleware, async (req, res) => {
         pendingMatches
       }
     });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST: Generate and send OTP for Account Verification
+app.post('/api/verify-account/send-otp', authMiddleware, async (req, res) => {
+  try {
+    const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
+
+    const { error } = await supabase
+      .from('verification_otps')
+      .insert([{ user_id: req.user.id, code, expires_at: expiresAt }]);
+
+    if (error) throw error;
+    
+    // In a real app, send this code via Email/SMS. Here we simulate success.
+    res.json({ success: true, message: 'OTP sent successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST: Verify OTP
+app.post('/api/verify-account/verify', authMiddleware, async (req, res) => {
+  const { code } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('verification_otps')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !data) return res.status(400).json({ success: false, error: 'No OTP requested' });
+    
+    if (new Date() > new Date(data.expires_at)) {
+      return res.status(400).json({ success: false, error: 'OTP expired' });
+    }
+    
+    if (data.attempts >= 3) {
+      return res.status(400).json({ success: false, error: 'Too many failed attempts. Request a new OTP.' });
+    }
+
+    if (data.code !== code) {
+      await supabase.from('verification_otps').update({ attempts: data.attempts + 1 }).eq('id', data.id);
+      return res.status(400).json({ success: false, error: 'Invalid OTP' });
+    }
+
+    // Success - delete the OTP so it can't be reused
+    await supabase.from('verification_otps').delete().eq('id', data.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST: Verify Ownership Private Detail
+app.post('/api/verify-ownership', authMiddleware, async (req, res) => {
+  const { matchId, privateDetail } = req.body;
+  try {
+    // 1. Get the match to find the lost report ID
+    const { data: match, error: matchError } = await supabase
+      .from('matches')
+      .select('lost_item_id')
+      .eq('id', matchId)
+      .single();
+
+    if (matchError || !match) return res.status(404).json({ success: false, error: 'Match not found' });
+
+    // 2. Get the lost item and check the private detail
+    const { data: lostItem, error: lostError } = await supabase
+      .from('lost_items')
+      .select('user_id, private_verification_detail')
+      .eq('id', match.lost_item_id)
+      .single();
+
+    if (lostError || !lostItem) return res.status(404).json({ success: false, error: 'Lost item not found' });
+    if (lostItem.user_id !== req.user.id) return res.status(403).json({ success: false, error: 'Unauthorized' });
+
+    // Compare case-insensitive, trimmed
+    const stored = (lostItem.private_verification_detail || '').trim().toLowerCase();
+    const provided = (privateDetail || '').trim().toLowerCase();
+
+    if (stored === provided && stored !== '') {
+      res.json({ success: true });
+    } else {
+      // In a real app we would track attempts here in another table
+      res.status(400).json({ success: false, error: 'Ownership verification could not be confirmed.' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST: Request Handover
+app.post('/api/handover/request', authMiddleware, async (req, res) => {
+  const { matchId } = req.body;
+  try {
+    const { data: match, error: matchError } = await supabase
+      .from('matches')
+      .select('*, found_items(user_id)')
+      .eq('id', matchId)
+      .single();
+
+    if (matchError || !match) return res.status(404).json({ success: false, error: 'Match not found' });
+
+    const { error: insertError } = await supabase
+      .from('handover_requests')
+      .insert([{
+        match_id: match.id,
+        lost_report_id: match.lost_item_id,
+        found_report_id: match.found_item_id,
+        requester_id: req.user.id,
+        finder_id: match.found_items.user_id,
+        status: 'pending'
+      }]);
+
+    if (insertError) throw insertError;
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST: Accept Handover
+app.post('/api/handover/:id/accept', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if the current user is the finder
+    const { data: request, error: reqError } = await supabase
+      .from('handover_requests')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (reqError || !request) return res.status(404).json({ success: false, error: 'Request not found' });
+    if (request.finder_id !== req.user.id) return res.status(403).json({ success: false, error: 'Unauthorized' });
+
+    const { error: updateError } = await supabase
+      .from('handover_requests')
+      .update({ status: 'accepted', updated_at: new Date() })
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST: Decline Handover
+app.post('/api/handover/:id/decline', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const { data: request, error: reqError } = await supabase
+      .from('handover_requests')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (reqError || !request) return res.status(404).json({ success: false, error: 'Request not found' });
+    if (request.finder_id !== req.user.id) return res.status(403).json({ success: false, error: 'Unauthorized' });
+
+    const { error: updateError } = await supabase
+      .from('handover_requests')
+      .update({ status: 'declined', updated_at: new Date() })
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

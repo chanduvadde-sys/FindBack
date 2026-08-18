@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
-import { Brain, Clock, ChevronRight } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Brain, Clock, ChevronRight, Handshake, CheckCircle2, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
 const Messages = () => {
@@ -9,29 +9,49 @@ const Messages = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/my-messages`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-          setMessages(data.messages);
-        } else {
-          setError('Failed to load messages.');
-        }
-      } catch (err) {
-        setError('Error connecting to the server.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (token) fetchMessages();
+    fetchMessages();
   }, [token]);
+
+  const fetchMessages = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/my-messages`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessages(data.messages);
+      } else {
+        setError('Failed to load messages.');
+      }
+    } catch (err) {
+      setError('Error connecting to the server.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleHandoverAction = async (requestId, action) => {
+    setUpdating(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/handover/${requestId}/${action}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        await fetchMessages();
+      } else {
+        alert(data.error || `Failed to ${action} handover`);
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+    setUpdating(false);
+  };
 
   const getTimeAgo = (dateStr) => {
     const r = new Date(dateStr);
@@ -66,16 +86,20 @@ const Messages = () => {
           const relevantItem = isMyLost ? match.lost_items : match.found_items;
           const otherItem = isMyLost ? match.found_items : match.lost_items;
           
+          // Handover Request logic
+          const requests = match.handover_requests || [];
+          const currentRequest = requests.length > 0 ? requests[0] : null;
+
           return (
             <motion.div 
               key={match.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.1 * i }}
-              className="glass-card p-5 hover:border-border-active transition-all group relative overflow-hidden"
+              className="glass-card p-5 hover:border-border-active transition-all group relative overflow-hidden flex flex-col gap-4"
             >
               {/* Unread Indicator (mock logic) */}
-              {match.status === 'pending' && (
+              {match.status === 'pending' && !currentRequest && (
                 <div className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-neon-green animate-pulse" />
               )}
               
@@ -107,13 +131,13 @@ const Messages = () => {
                   <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-border-subtle">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-bg-dark border border-neon-green/30 flex items-center justify-center text-neon-green font-bold text-xs shadow-[0_0_10px_rgba(57,255,136,0.15)]">
-                        {match.total_score}%
+                        {Math.round(match.total_score)}%
                       </div>
                       <span className="text-xs font-medium text-text-secondary">Confidence Score</span>
                     </div>
                     
                     <Link 
-                      to={`/matches/${match.lost_item_id}`} 
+                      to={`/matches/${match.id}`} 
                       className="btn-secondary py-2 px-4 text-xs flex items-center gap-2"
                     >
                       View Match <ChevronRight className="w-3 h-3" />
@@ -121,6 +145,69 @@ const Messages = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Handover Request Section (Finder Side) */}
+              {currentRequest && !isMyLost && (
+                <div className="bg-bg-dark border border-border-subtle rounded-xl p-4 mt-2">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 rounded-lg bg-orange/10 text-orange">
+                      <Handshake className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-text-primary">Handover Request Received</h4>
+                      <p className="text-xs text-text-muted mt-0.5">The owner has securely verified their identity and ownership.</p>
+                    </div>
+                  </div>
+                  
+                  {currentRequest.status === 'pending' ? (
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={() => handleHandoverAction(currentRequest.id, 'accept')}
+                        disabled={updating}
+                        className="btn-primary flex-1 py-2 text-sm flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4" /> Accept Handover
+                      </button>
+                      <button 
+                        onClick={() => handleHandoverAction(currentRequest.id, 'decline')}
+                        disabled={updating}
+                        className="btn-glass flex-1 py-2 text-sm flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:border-red-400/30"
+                      >
+                        <XCircle className="w-4 h-4" /> Decline
+                      </button>
+                    </div>
+                  ) : currentRequest.status === 'accepted' ? (
+                    <div className="bg-neon-green/10 text-neon-green border border-neon-green/20 py-2 rounded-lg text-center text-sm font-bold flex items-center justify-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" /> You accepted this handover
+                    </div>
+                  ) : (
+                    <div className="bg-red-500/10 text-red-400 border border-red-500/20 py-2 rounded-lg text-center text-sm font-bold flex items-center justify-center gap-2">
+                      <XCircle className="w-4 h-4" /> You declined this handover
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Handover Request Section (Requester Side) */}
+              {currentRequest && isMyLost && (
+                <div className="bg-bg-dark border border-border-subtle rounded-xl p-4 mt-2">
+                  {currentRequest.status === 'pending' && (
+                    <div className="text-orange text-sm font-medium flex items-center gap-2">
+                      <Clock className="w-4 h-4" /> Waiting for finder to accept your request...
+                    </div>
+                  )}
+                  {currentRequest.status === 'accepted' && (
+                    <div className="text-neon-green text-sm font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" /> Finder has accepted! Check your email for next steps.
+                    </div>
+                  )}
+                  {currentRequest.status === 'declined' && (
+                    <div className="text-red-400 text-sm font-medium flex items-center gap-2">
+                      <XCircle className="w-4 h-4" /> Finder declined the handover request.
+                    </div>
+                  )}
+                </div>
+              )}
             </motion.div>
           );
         })}
