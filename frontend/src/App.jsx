@@ -11,8 +11,11 @@ import MyMatches from './pages/MyMatches';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
-// New UI Pages
-import Dashboard from './pages/Dashboard';
+import ProfileLayout from './pages/profile/ProfileLayout';
+import Overview from './pages/profile/Overview';
+import MyReports from './pages/profile/MyReports';
+import Messages from './pages/profile/Messages';
+import Analytics from './pages/profile/Analytics';
 import AIEngine from './pages/AIEngine';
 import ItemsFeed from './pages/ItemsFeed';
 import MatchDetail from './pages/MatchDetail';
@@ -28,7 +31,12 @@ function App() {
             <Route path="/register" element={<Register />} />
             
             {/* New UI Routes */}
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><ProfileLayout /></ProtectedRoute>}>
+              <Route index element={<Overview />} />
+              <Route path="reports" element={<MyReports />} />
+              <Route path="messages" element={<Messages />} />
+              <Route path="analytics" element={<Analytics />} />
+            </Route>
             <Route path="/ai-engine" element={<AIEngine />} />
             <Route path="/items" element={<ItemsFeed />} />
             <Route path="/matches/:id" element={<ProtectedRoute><MatchDetail /></ProtectedRoute>} />

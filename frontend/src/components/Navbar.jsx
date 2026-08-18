@@ -21,7 +21,7 @@ const Navbar = () => {
     { name: 'AI Engine', path: '/ai-engine' },
     { name: 'Items Feed', path: '/items' },
     { name: 'Report Item', path: '/report-lost' },
-    { name: 'Dashboard', path: '/dashboard' }
+    { name: 'Profile', path: '/profile' }
   ];
 
   const isActive = (path) => {

@@ -172,10 +172,128 @@ app.get('/api/matches/:lostItemId', authMiddleware, async (req, res) => {
   }
 });
 
+// GET My Reports (Lost and Found)
+app.get('/api/my-reports', authMiddleware, async (req, res) => {
+  try {
+    const { data: lostData, error: lostError } = await supabase
+      .from('lost_items')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+      
+    if (lostError) throw lostError;
+
+    const { data: foundData, error: foundError } = await supabase
+      .from('found_items')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+      
+    if (foundError) throw foundError;
+
+    const lostItems = lostData.map(item => ({ ...item, type: 'Lost' }));
+    const foundItems = foundData.map(item => ({ ...item, type: 'Found' }));
+
+    const allReports = [...lostItems, ...foundItems].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    res.json({ success: true, items: allReports });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET My Messages (Matches involving my items)
+app.get('/api/my-messages', authMiddleware, async (req, res) => {
+  try {
+    const { data: myLostItems } = await supabase.from('lost_items').select('id').eq('user_id', req.user.id);
+    const { data: myFoundItems } = await supabase.from('found_items').select('id').eq('user_id', req.user.id);
+    
+    const lostIds = myLostItems?.map(i => i.id) || [];
+    const foundIds = myFoundItems?.map(i => i.id) || [];
+    
+    if (lostIds.length === 0 && foundIds.length === 0) {
+      return res.json({ success: true, messages: [] });
+    }
+
+    let query = supabase
+      .from('matches')
+      .select('*, lost_items(*), found_items(*)');
+      
+    if (lostIds.length > 0 && foundIds.length > 0) {
+      query = query.or(`lost_item_id.in.(${lostIds.join(',')}),found_item_id.in.(${foundIds.join(',')})`);
+    } else if (lostIds.length > 0) {
+      query = query.in('lost_item_id', lostIds);
+    } else {
+      query = query.in('found_item_id', foundIds);
+    }
+
+    const { data: matches, error } = await query.order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    
+    res.json({ success: true, messages: matches });
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET My Analytics
+app.get('/api/my-analytics', authMiddleware, async (req, res) => {
+  try {
+    const { data: lostData } = await supabase.from('lost_items').select('id, status').eq('user_id', req.user.id);
+    const { data: foundData } = await supabase.from('found_items').select('id, status').eq('user_id', req.user.id);
+    
+    const lostCount = lostData?.length || 0;
+    const foundCount = foundData?.length || 0;
+    const totalReports = lostCount + foundCount;
+    
+    const recoveredLost = lostData?.filter(i => i.status === 'recovered' || i.status === 'closed').length || 0;
+    const recoveredFound = foundData?.filter(i => i.status === 'recovered' || i.status === 'closed').length || 0;
+    const successfulRecoveries = recoveredLost + recoveredFound;
+    
+    const lostIds = lostData?.map(i => i.id) || [];
+    const foundIds = foundData?.map(i => i.id) || [];
+    
+    let pendingMatches = 0;
+    let matchesFound = 0;
+    
+    if (lostIds.length > 0 || foundIds.length > 0) {
+       let query = supabase.from('matches').select('id, status');
+       if (lostIds.length > 0 && foundIds.length > 0) {
+         query = query.or(`lost_item_id.in.(${lostIds.join(',')}),found_item_id.in.(${foundIds.join(',')})`);
+       } else if (lostIds.length > 0) {
+         query = query.in('lost_item_id', lostIds);
+       } else {
+         query = query.in('found_item_id', foundIds);
+       }
+       
+       const { data: matchData } = await query;
+       if (matchData) {
+         matchesFound = matchData.length;
+         pendingMatches = matchData.filter(m => !m.status || m.status === 'pending').length || matchData.length;
+       }
+    }
+    
+    res.json({ 
+      success: true, 
+      analytics: {
+        totalReports,
+        lostItems: lostCount,
+        foundItems: foundCount,
+        successfulRecoveries,
+        matchesFound,
+        pendingMatches
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-
 
 
 
