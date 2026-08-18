@@ -1,6 +1,8 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { Brain } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 function Register() {
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
@@ -24,39 +26,50 @@ function Register() {
     }
   };
 
+  const inputClass = "w-full bg-bg-dark border border-border-subtle rounded-lg py-3 px-4 text-sm text-text-primary focus:outline-none focus:border-cyan/50 transition-colors placeholder:text-text-muted";
+  const labelClass = "block text-sm font-medium text-text-secondary mb-2";
+
   return (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center py-12 px-4 font-sans text-zinc-900">
-      <div className="max-w-md w-full bg-white p-8 border border-zinc-200 rounded-lg shadow-sm">
-        <div className="text-center mb-8">
-          <Link to="/" className="text-xl font-semibold tracking-tight text-zinc-900 mb-2 inline-block">FindBack.</Link>
-          <h2 className="text-2xl font-semibold">Create an account</h2>
-          <p className="text-zinc-500 text-sm mt-1">Start reuniting people with their lost items.</p>
+    <div className="container mx-auto px-6 lg:px-12 py-12 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md glass-card p-8 md:p-10 relative overflow-hidden"
+      >
+        <div className="absolute top-0 left-0 w-64 h-64 bg-cyan/10 rounded-full blur-[100px] pointer-events-none" />
+
+        <div className="text-center mb-8 relative z-10">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan/20 to-neon-green/20 border border-cyan/30 flex items-center justify-center mx-auto mb-4">
+            <Brain className="text-cyan w-7 h-7" />
+          </div>
+          <h2 className="text-2xl font-heading font-bold text-text-primary">Create an Account</h2>
+          <p className="text-text-secondary text-sm mt-2">Join the FindBack AI network</p>
         </div>
         
-        {error && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded border border-red-100">{error}</div>}
+        {error && <div className="mb-6 p-3 bg-red-500/10 text-red-400 border border-red-500/20 text-sm rounded-lg text-center relative z-10">{error}</div>}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Name</label>
-            <input type="text" required className="w-full p-2.5 border border-zinc-300 rounded-md focus:ring-1 focus:ring-zinc-900 outline-none" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+            <label className={labelClass}>Full Name</label>
+            <input type="text" required className={inputClass} value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Email</label>
-            <input type="email" required className="w-full p-2.5 border border-zinc-300 rounded-md focus:ring-1 focus:ring-zinc-900 outline-none" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+            <label className={labelClass}>Email Address</label>
+            <input type="email" required className={inputClass} value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Password</label>
-            <input type="password" required minLength="6" className="w-full p-2.5 border border-zinc-300 rounded-md focus:ring-1 focus:ring-zinc-900 outline-none" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} />
+            <label className={labelClass}>Password</label>
+            <input type="password" required minLength="6" className={inputClass} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} />
           </div>
-          <button type="submit" disabled={loading} className="w-full py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white font-medium rounded-md transition-colors mt-2 disabled:opacity-50">
-            {loading ? 'Signing up...' : 'Sign up'}
+          <button type="submit" disabled={loading} className="btn-secondary w-full py-3.5 mt-2 disabled:opacity-50 flex items-center justify-center gap-2">
+            {loading ? 'Signing up...' : 'Create Account'}
           </button>
         </form>
         
-        <p className="mt-6 text-center text-sm text-zinc-500">
-          Already have an account? <Link to="/login" className="text-zinc-900 font-medium hover:underline">Log in</Link>
+        <p className="mt-6 text-center text-sm text-text-muted relative z-10">
+          Already have an account? <Link to="/login" className="text-cyan font-medium hover:underline">Log in</Link>
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 }

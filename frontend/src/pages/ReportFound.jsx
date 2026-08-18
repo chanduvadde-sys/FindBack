@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
+import { ArrowLeft, CheckCircle2, UploadCloud, MapPin } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 function ReportFound() {
   const navigate = useNavigate();
+  const { token } = useContext(AuthContext);
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     category: '',
@@ -27,7 +31,10 @@ function ReportFound() {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/found-items`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(formData)
       });
       const data = await response.json();
@@ -44,70 +51,105 @@ function ReportFound() {
     }
   };
 
+  const inputClass = "w-full bg-bg-dark border border-border-subtle rounded-lg py-3 px-4 text-sm text-text-primary focus:outline-none focus:border-cyan/50 transition-colors placeholder:text-text-muted";
+  const labelClass = "block text-sm font-medium text-text-secondary mb-2";
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4">
-      <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg">
+    <div className="container mx-auto px-6 lg:px-12 py-12 flex flex-col items-center">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-2xl glass-card p-8 md:p-12 relative overflow-hidden"
+      >
+        {/* Glow decoration */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-cyan/10 rounded-full blur-[100px] pointer-events-none" />
+
         {submitted ? (
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+          <div className="text-center py-12 flex flex-col items-center relative z-10">
+            <div className="w-20 h-20 bg-cyan/10 border border-cyan/30 text-cyan rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(0,217,255,0.2)]">
+              <CheckCircle2 className="w-10 h-10" />
             </div>
-            <h2 className="text-3xl font-bold text-gray-800 mb-3">Item Reported!</h2>
-            <p className="text-gray-500 mb-8">Thank you for reporting this found item. We are matching it with lost reports.</p>
-            <Link to="/my-matches" className="block w-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-3 rounded-lg shadow transition-colors text-center">
-              View My Matches
-            </Link>
-            <button onClick={() => setSubmitted(false)} className="mt-6 text-sm text-zinc-500 hover:text-zinc-900 underline">Submit another report</button>
+            <h2 className="text-3xl font-heading font-bold text-text-primary mb-3">Item Reported!</h2>
+            <p className="text-text-secondary mb-8 max-w-sm">Thank you for reporting this found item. We are matching it with lost reports.</p>
+            <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
+              <Link to="/dashboard" className="btn-secondary w-full sm:w-auto text-center">
+                Go to Dashboard
+              </Link>
+              <button onClick={() => setSubmitted(false)} className="btn-glass w-full sm:w-auto">
+                Submit Another
+              </button>
+            </div>
           </div>
         ) : (
-          <>
-            <button onClick={() => navigate(-1)} className="text-blue-500 hover:underline mb-4">&larr; Back</button>
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Report Found Item</h2>
-
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="relative z-10">
+            <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors mb-8">
+              <ArrowLeft className="w-4 h-4" /> Back
+            </button>
+            
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-3 rounded-xl bg-cyan/10 text-cyan border border-cyan/20">
+                <MapPin className="w-6 h-6" />
+              </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select name="category" value={formData.category} onChange={handleChange} required className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none">
-                  <option value="">Select Category</option>
-                  <option value="electronics">Electronics (Phones, Laptops)</option>
-                  <option value="wallet">Wallet / ID / Keys</option>
-                  <option value="clothing">Clothing / Bags</option>
-                  <option value="other">Other</option>
-                </select>
+                <h2 className="text-3xl font-heading font-bold text-text-primary">Report Found Item</h2>
+                <p className="text-sm text-text-muted mt-1">Help return this item to its rightful owner.</p>
+              </div>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className={labelClass}>Category *</label>
+                  <select name="category" value={formData.category} onChange={handleChange} required className={`${inputClass} appearance-none`}>
+                    <option value="" className="bg-bg-dark">Select Category</option>
+                    <option value="electronics" className="bg-bg-dark">Electronics (Phones, Laptops)</option>
+                    <option value="wallet" className="bg-bg-dark">Wallet / ID / Keys</option>
+                    <option value="clothing" className="bg-bg-dark">Clothing / Bags</option>
+                    <option value="other" className="bg-bg-dark">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Color</label>
+                  <input type="text" name="color" value={formData.color} onChange={handleChange} placeholder="e.g. Black, Red" className={inputClass} />
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                <input type="text" name="color" value={formData.color} onChange={handleChange} placeholder="e.g. Black, Red" className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none" />
+                <label className={labelClass}>Location Found *</label>
+                <input type="text" name="locationText" value={formData.locationText} onChange={handleChange} required placeholder="e.g. Cafeteria, Table 4" className={inputClass} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Location Found</label>
-                <input type="text" name="locationText" value={formData.locationText} onChange={handleChange} required placeholder="e.g. Cafeteria, Table 4" className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none" />
+                <label className={labelClass}>Date & Time Found *</label>
+                <input type="datetime-local" name="dateTime" value={formData.dateTime} onChange={handleChange} required className={`${inputClass} [color-scheme:dark]`} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date & Time Found</label>
-                <input type="datetime-local" name="dateTime" value={formData.dateTime} onChange={handleChange} required className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none" />
+                <label className={labelClass}>Description (Don't reveal everything)</label>
+                <textarea name="description" value={formData.description} onChange={handleChange} rows="4" placeholder="Describe the item, but leave out a hidden detail for verification." className={inputClass}></textarea>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description (Don't reveal everything)</label>
-                <textarea name="description" value={formData.description} onChange={handleChange} rows="3" placeholder="Describe the item, but leave out a hidden detail for verification." className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                <label className={labelClass}>Upload Photo (Optional)</label>
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border-subtle rounded-xl cursor-pointer bg-bg-dark hover:bg-bg-glass-hover hover:border-cyan/30 transition-all">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <UploadCloud className="w-8 h-8 text-text-muted mb-2" />
+                    <p className="text-sm text-text-secondary font-medium">Click to upload or drag and drop</p>
+                    <p className="text-xs text-text-muted mt-1">SVG, PNG, JPG or GIF</p>
+                  </div>
+                  <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                </label>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Upload Photo (Optional)</label>
-                <input type="file" accept="image/*" onChange={handleFileChange} className="w-full p-2 border rounded-md text-sm" />
+              <div className="pt-4 border-t border-border-subtle">
+                <button type="submit" className="btn-secondary w-full text-lg py-4">
+                  Submit Found Report
+                </button>
               </div>
-
-              <button type="submit" className="mt-4 w-full border border-zinc-300 hover:bg-zinc-50 text-zinc-900 font-bold py-3 rounded-lg shadow-sm transition-colors">
-                Submit Found Report
-              </button>
             </form>
-          </>
+          </div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }

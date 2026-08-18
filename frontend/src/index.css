@@ -1,9 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", sans-serif;
+  --font-heading: "Space Grotesk", sans-serif;
+
+  --color-neon-green: #39FF88;
+  --color-secondary-green: #19D96B;
+  --color-cyan: #00D9FF;
+  --color-orange: #FF9D2E;
+  
+  --color-bg-dark: #030708;
+  --color-bg-glass: rgba(255,255,255,0.03);
+  --color-bg-glass-hover: rgba(255,255,255,0.05);
+
+  --color-text-primary: #F5F7F6;
+  --color-text-secondary: #9AA7A2;
+  --color-text-muted: #68736F;
+
+  --color-border-subtle: rgba(255,255,255,0.08);
+  --color-border-active: rgba(57,255,136,0.35);
+
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-float: float 6s ease-in-out infinite;
 }
 
-body {
-  font-family: var(--font-sans);
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@layer base {
+  html, body {
+    @apply bg-bg-dark text-text-primary antialiased;
+    background: 
+      radial-gradient(circle at 70% 20%, rgba(20,255,120,0.08), transparent 35%),
+      radial-gradient(circle at 20% 80%, rgba(0,180,255,0.05), transparent 35%),
+      #030708;
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-bg-glass backdrop-blur-md border border-border-subtle rounded-[16px] shadow-lg transition-all duration-300;
+  }
+  .glass-card:hover {
+    @apply border-border-active shadow-[0_4px_20px_rgba(57,255,136,0.1)] -translate-y-1;
+  }
+  
+  .glass-panel {
+    @apply bg-bg-glass backdrop-blur-lg border border-border-subtle;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-neon-green to-cyan;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-secondary-green to-neon-green text-bg-dark font-semibold px-6 py-3 rounded-lg transition-all hover:brightness-110 active:scale-[0.97] shadow-[0_0_15px_rgba(57,255,136,0.4)];
+  }
+
+  .btn-secondary {
+    @apply bg-gradient-to-r from-[#00A3FF] to-cyan text-bg-dark font-semibold px-6 py-3 rounded-lg transition-all hover:brightness-110 active:scale-[0.97] shadow-[0_0_15px_rgba(0,217,255,0.4)];
+  }
+  
+  .btn-glass {
+    @apply glass-panel text-text-primary font-medium px-6 py-3 rounded-lg transition-all hover:bg-bg-glass-hover active:scale-[0.97];
+  }
 }
