@@ -73,9 +73,6 @@ function ReportLost() {
             <h2 className="text-3xl font-heading font-bold text-text-primary mb-3">Report Submitted!</h2>
             <p className="text-text-secondary mb-8 max-w-sm">Your report has been added to the FindBack AI matching system. We're scanning for potential matches.</p>
             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-              <Link to="/dashboard" className="btn-primary w-full sm:w-auto text-center">
-                Go to Dashboard
-              </Link>
               <button onClick={() => setSubmitted(false)} className="btn-glass w-full sm:w-auto">
                 Submit Another
               </button>

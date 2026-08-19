@@ -72,9 +72,6 @@ function ReportFound() {
             <h2 className="text-3xl font-heading font-bold text-text-primary mb-3">Item Reported!</h2>
             <p className="text-text-secondary mb-8 max-w-sm">Thank you for reporting this found item. We are matching it with lost reports.</p>
             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-              <Link to="/dashboard" className="btn-secondary w-full sm:w-auto text-center">
-                Go to Dashboard
-              </Link>
               <button onClick={() => setSubmitted(false)} className="btn-glass w-full sm:w-auto">
                 Submit Another
               </button>
