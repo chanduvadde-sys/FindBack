@@ -217,7 +217,7 @@ app.get('/api/my-messages', authMiddleware, async (req, res) => {
 
     let query = supabase
       .from('matches')
-      .select('*, lost_items(*), found_items(*), handover_requests(*)');
+      .select('*, lost_items(*), found_items(*), item_release_requests(*)');
       
     if (lostIds.length > 0 && foundIds.length > 0) {
       query = query.or(`lost_item_id.in.(${lostIds.join(',')}),found_item_id.in.(${foundIds.join(',')})`);
@@ -291,184 +291,101 @@ app.get('/api/my-analytics', authMiddleware, async (req, res) => {
   }
 });
 
-// POST: Generate and send OTP for Account Verification
-app.post('/api/verify-account/send-otp', authMiddleware, async (req, res) => {
-  try {
-    const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
-
-    const { error } = await supabase
-      .from('verification_otps')
-      .insert([{ user_id: req.user.id, code, expires_at: expiresAt }]);
-
-    if (error) throw error;
-    
-    // In a real app, send this code via Email/SMS. Here we simulate success.
-    res.json({ success: true, message: 'OTP sent successfully' });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// POST: Verify OTP
-app.post('/api/verify-account/verify', authMiddleware, async (req, res) => {
-  const { code } = req.body;
-  try {
-    const { data, error } = await supabase
-      .from('verification_otps')
-      .select('*')
-      .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error || !data) return res.status(400).json({ success: false, error: 'No OTP requested' });
-    
-    if (new Date() > new Date(data.expires_at)) {
-      return res.status(400).json({ success: false, error: 'OTP expired' });
-    }
-    
-    if (data.attempts >= 3) {
-      return res.status(400).json({ success: false, error: 'Too many failed attempts. Request a new OTP.' });
-    }
-
-    if (data.code !== code) {
-      await supabase.from('verification_otps').update({ attempts: data.attempts + 1 }).eq('id', data.id);
-      return res.status(400).json({ success: false, error: 'Invalid OTP' });
-    }
-
-    // Success - delete the OTP so it can't be reused
-    await supabase.from('verification_otps').delete().eq('id', data.id);
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// POST: Verify Ownership Private Detail
-app.post('/api/verify-ownership', authMiddleware, async (req, res) => {
-  const { matchId, privateDetail } = req.body;
-  try {
-    // 1. Get the match to find the lost report ID
-    const { data: match, error: matchError } = await supabase
-      .from('matches')
-      .select('lost_item_id')
-      .eq('id', matchId)
-      .single();
-
-    if (matchError || !match) return res.status(404).json({ success: false, error: 'Match not found' });
-
-    // 2. Get the lost item and check the private detail
-    const { data: lostItem, error: lostError } = await supabase
-      .from('lost_items')
-      .select('user_id, private_verification_detail')
-      .eq('id', match.lost_item_id)
-      .single();
-
-    if (lostError || !lostItem) return res.status(404).json({ success: false, error: 'Lost item not found' });
-    if (lostItem.user_id !== req.user.id) return res.status(403).json({ success: false, error: 'Unauthorized' });
-
-    // Compare case-insensitive, trimmed
-    const stored = (lostItem.private_verification_detail || '').trim().toLowerCase();
-    const provided = (privateDetail || '').trim().toLowerCase();
-
-    if (stored === provided && stored !== '') {
-      res.json({ success: true });
-    } else {
-      // In a real app we would track attempts here in another table
-      res.status(400).json({ success: false, error: 'Ownership verification could not be confirmed.' });
-    }
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// POST: Request Handover
-app.post('/api/handover/request', authMiddleware, async (req, res) => {
+// POST: Finder requests item release, generates OTP for Owner
+app.post('/api/release/request', authMiddleware, async (req, res) => {
   const { matchId } = req.body;
   try {
     const { data: match, error: matchError } = await supabase
       .from('matches')
-      .select('*, found_items(user_id)')
+      .select('*, lost_items(user_id)')
       .eq('id', matchId)
       .single();
 
     if (matchError || !match) return res.status(404).json({ success: false, error: 'Match not found' });
 
+    // Generate 6-digit OTP
+    const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+    // We use crypto to hash the OTP for demo purposes, or just store it. 
+    // The prompt requested a hash, but also to show the raw OTP to the owner in Messages.
+    // So we'll store raw_otp in the database. In a real app we would email raw_otp and only store otp_hash.
+    const crypto = require('crypto');
+    const otpHash = crypto.createHash('sha256').update(rawOtp).digest('hex');
+
     const { error: insertError } = await supabase
-      .from('handover_requests')
+      .from('item_release_requests')
       .insert([{
         match_id: match.id,
-        lost_report_id: match.lost_item_id,
-        found_report_id: match.found_item_id,
-        requester_id: req.user.id,
-        finder_id: match.found_items.user_id,
-        status: 'pending'
+        lost_owner_id: match.lost_items.user_id,
+        finder_id: req.user.id,
+        otp_hash: otpHash,
+        raw_otp: rawOtp,
+        expires_at: expiresAt,
+        status: 'WAITING_FOR_OWNER_OTP'
       }]);
 
-    if (insertError) throw insertError;
-    res.json({ success: true });
+    if (insertError) {
+      // If it already exists, maybe update it? Or return error
+      return res.status(400).json({ success: false, error: 'Release request already exists. Or check if it expired.' });
+    }
+
+    res.json({ success: true, message: 'OTP sent to owner.' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// POST: Accept Handover
-app.post('/api/handover/:id/accept', authMiddleware, async (req, res) => {
+// POST: Finder verifies OTP to authorize release
+app.post('/api/release/verify', authMiddleware, async (req, res) => {
+  const { matchId, otp } = req.body;
   try {
-    const { id } = req.params;
-    
-    // Check if the current user is the finder
     const { data: request, error: reqError } = await supabase
-      .from('handover_requests')
+      .from('item_release_requests')
       .select('*')
-      .eq('id', id)
+      .eq('match_id', matchId)
       .single();
 
-    if (reqError || !request) return res.status(404).json({ success: false, error: 'Request not found' });
-    if (request.finder_id !== req.user.id) return res.status(403).json({ success: false, error: 'Unauthorized' });
+    if (reqError || !request) return res.status(404).json({ success: false, error: 'Release request not found' });
+    if (request.finder_id !== req.user.id) return res.status(403).json({ success: false, error: 'Unauthorized. Only the finder can verify the OTP.' });
 
-    const { error: updateError } = await supabase
-      .from('handover_requests')
-      .update({ status: 'accepted', updated_at: new Date() })
-      .eq('id', id);
+    if (request.status === 'LOCKED') return res.status(400).json({ success: false, error: 'Verification temporarily locked due to too many attempts.' });
+    if (request.status === 'RELEASE_AUTHORIZED') return res.status(400).json({ success: false, error: 'Release already authorized.' });
+    if (new Date() > new Date(request.expires_at)) {
+      await supabase.from('item_release_requests').update({ status: 'EXPIRED' }).eq('id', request.id);
+      return res.status(400).json({ success: false, error: 'OTP has expired. Please request a new one.' });
+    }
 
-    if (updateError) throw updateError;
+    const crypto = require('crypto');
+    const providedHash = crypto.createHash('sha256').update(otp).digest('hex');
+
+    if (request.otp_hash !== providedHash) {
+      const newAttempts = request.attempts + 1;
+      const updates = { attempts: newAttempts };
+      if (newAttempts >= 5) {
+        updates.status = 'LOCKED';
+      }
+      await supabase.from('item_release_requests').update(updates).eq('id', request.id);
+      
+      if (newAttempts >= 5) return res.status(400).json({ success: false, error: 'Too many incorrect attempts. Verification locked.' });
+      return res.status(400).json({ success: false, error: 'Invalid OTP' });
+    }
+
+    // Success
+    await supabase.from('item_release_requests').update({ status: 'RELEASE_AUTHORIZED' }).eq('id', request.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// POST: Decline Handover
-app.post('/api/handover/:id/decline', authMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const { data: request, error: reqError } = await supabase
-      .from('handover_requests')
-      .select('*')
-      .eq('id', id)
-      .single();
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
 
-    if (reqError || !request) return res.status(404).json({ success: false, error: 'Request not found' });
-    if (request.finder_id !== req.user.id) return res.status(403).json({ success: false, error: 'Unauthorized' });
-
-    const { error: updateError } = await supabase
-      .from('handover_requests')
-      .update({ status: 'declined', updated_at: new Date() })
-      .eq('id', id);
-
-    if (updateError) throw updateError;
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+module.exports = app;
 
 
 

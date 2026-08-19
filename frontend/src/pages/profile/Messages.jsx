@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
-import { Brain, Clock, ChevronRight, Handshake, CheckCircle2, XCircle } from 'lucide-react';
+import { Brain, ChevronRight, Clock, ShieldCheck, CheckCircle2, KeyRound } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
@@ -86,8 +86,8 @@ const Messages = () => {
           const relevantItem = isMyLost ? match.lost_items : match.found_items;
           const otherItem = isMyLost ? match.found_items : match.lost_items;
           
-          // Handover Request logic
-          const requests = match.handover_requests || [];
+          // Release Request logic
+          const requests = match.item_release_requests || [];
           const currentRequest = requests.length > 0 ? requests[0] : null;
 
           return (
@@ -146,64 +146,43 @@ const Messages = () => {
                 </div>
               </div>
 
-              {/* Handover Request Section (Finder Side) */}
-              {currentRequest && !isMyLost && (
+              {/* Handover Request Section (Owner Side - Display OTP) */}
+              {currentRequest && isMyLost && (
                 <div className="bg-bg-dark border border-border-subtle rounded-xl p-4 mt-2">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 rounded-lg bg-orange/10 text-orange">
-                      <Handshake className="w-5 h-5" />
+                  {currentRequest.status === 'WAITING_FOR_OWNER_OTP' && (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                         <div className="text-orange text-sm font-medium flex items-center gap-2">
+                           <KeyRound className="w-4 h-4" /> Handover Verification Required
+                         </div>
+                      </div>
+                      <p className="text-xs text-text-secondary">A found-item user is requesting authorization to return this item.</p>
+                      <div className="bg-orange/10 border border-orange/30 p-3 rounded-lg text-center">
+                        <p className="text-xs text-text-muted mb-1">Your 6-digit release OTP:</p>
+                        <p className="font-mono text-2xl tracking-[0.3em] font-bold text-orange">{currentRequest.raw_otp}</p>
+                        <p className="text-[10px] text-text-muted mt-2">Share this OTP with the finder only if you want to authorize the item release.</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-text-primary">Handover Request Received</h4>
-                      <p className="text-xs text-text-muted mt-0.5">The owner has securely verified their identity and ownership.</p>
-                    </div>
-                  </div>
-                  
-                  {currentRequest.status === 'pending' ? (
-                    <div className="flex gap-3">
-                      <button 
-                        onClick={() => handleHandoverAction(currentRequest.id, 'accept')}
-                        disabled={updating}
-                        className="btn-primary flex-1 py-2 text-sm flex items-center justify-center gap-2"
-                      >
-                        <CheckCircle2 className="w-4 h-4" /> Accept Handover
-                      </button>
-                      <button 
-                        onClick={() => handleHandoverAction(currentRequest.id, 'decline')}
-                        disabled={updating}
-                        className="btn-glass flex-1 py-2 text-sm flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:border-red-400/30"
-                      >
-                        <XCircle className="w-4 h-4" /> Decline
-                      </button>
-                    </div>
-                  ) : currentRequest.status === 'accepted' ? (
-                    <div className="bg-neon-green/10 text-neon-green border border-neon-green/20 py-2 rounded-lg text-center text-sm font-bold flex items-center justify-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" /> You accepted this handover
-                    </div>
-                  ) : (
-                    <div className="bg-red-500/10 text-red-400 border border-red-500/20 py-2 rounded-lg text-center text-sm font-bold flex items-center justify-center gap-2">
-                      <XCircle className="w-4 h-4" /> You declined this handover
+                  )}
+                  {currentRequest.status === 'RELEASE_AUTHORIZED' && (
+                    <div className="text-neon-green text-sm font-bold flex items-center gap-2 bg-neon-green/10 p-3 rounded-lg border border-neon-green/20">
+                      <CheckCircle2 className="w-5 h-5" /> Handover Authorized
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Handover Request Section (Requester Side) */}
-              {currentRequest && isMyLost && (
+              {/* Handover Request Section (Finder Side) */}
+              {currentRequest && !isMyLost && (
                 <div className="bg-bg-dark border border-border-subtle rounded-xl p-4 mt-2">
-                  {currentRequest.status === 'pending' && (
-                    <div className="text-orange text-sm font-medium flex items-center gap-2">
-                      <Clock className="w-4 h-4" /> Waiting for finder to accept your request...
+                  {currentRequest.status === 'WAITING_FOR_OWNER_OTP' && (
+                    <div className="text-text-secondary text-sm font-medium flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-cyan" /> Waiting for you to enter the owner's OTP...
                     </div>
                   )}
-                  {currentRequest.status === 'accepted' && (
-                    <div className="text-neon-green text-sm font-bold flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" /> Finder has accepted! Check your email for next steps.
-                    </div>
-                  )}
-                  {currentRequest.status === 'declined' && (
-                    <div className="text-red-400 text-sm font-medium flex items-center gap-2">
-                      <XCircle className="w-4 h-4" /> Finder declined the handover request.
+                  {currentRequest.status === 'RELEASE_AUTHORIZED' && (
+                    <div className="text-neon-green text-sm font-bold flex items-center gap-2 bg-neon-green/10 p-3 rounded-lg border border-neon-green/20">
+                      <CheckCircle2 className="w-5 h-5" /> Item Release Authorized
                     </div>
                   )}
                 </div>

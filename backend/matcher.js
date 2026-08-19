@@ -45,7 +45,10 @@ async function calculateMatchScore(lostItem, foundItem) {
 
   // 4. Smart Text Match with Gemini (25%)
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel(
+      { model: "gemini-1.5-flash" },
+      { timeout: 5000 } // 5 second timeout to quickly fallback if network is blocked
+    );
     
     const prompt = `
     You are an AI matching engine for a lost and found application.
